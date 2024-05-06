@@ -32,6 +32,11 @@ static_resources:
               routes:
               - match:
                   prefix: "/"
+                  case_sensitive: true
+                  headers: 
+                  - name: releaseversion
+                    string_match:
+                       exact: v1
                 route: 
                   cluster: service_httpbin
           http_filters:
@@ -39,7 +44,8 @@ static_resources:
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
               failure_mode_allow: false
-              allow_mode_override: true
+              #disable_clear_route_cache: false # in 1.26.3 this field is unknown 
+              #allow_mode_override: true # in 1.26.8 field is unknown
               processing_mode:
                 request_header_mode: "SEND"
                 response_header_mode: "SKIP"
@@ -50,6 +56,17 @@ static_resources:
               grpc_service:
                 envoy_grpc:                  
                   cluster_name: ext_proc_cluster
+          - name: envoy.filters.http.tap
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.tap.v3.Tap
+              common_config:
+                static_config:
+                  match_config:
+                    any_match: true
+                  output_config:
+                    sinks:
+                      - file_per_tap:
+                          path_prefix: /tmp/any/
           - name: envoy.filters.http.router
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router  
@@ -73,7 +90,7 @@ static_resources:
       typed_config:
         "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
   - name: ext_proc_cluster
-    type: STATIC
+    type: LOGICAL_DNS
     connect_timeout: 0.25s
     http2_protocol_options: {}
     load_assignment:
@@ -83,7 +100,7 @@ static_resources:
         - endpoint:
             address:
               socket_address:
-                address: 127.0.0.1
+                address: ext-processor
                 port_value: 18080 
     health_checks:
       - timeout: 1s

@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	//"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -90,6 +91,38 @@ func (s *server) Process(srv pb.ExternalProcessor_ProcessServer) error {
 						Response: &pb.CommonResponse{
 							HeaderMutation: &pb.HeaderMutation{
 								RemoveHeaders: []string{"content-length", "user"},
+							},
+						},
+					}
+
+					resp = &pb.ProcessingResponse{
+						Response: &pb.ProcessingResponse_RequestHeaders{
+							RequestHeaders: rhq,
+						},
+						ModeOverride: &v3.ProcessingMode{
+							RequestBodyMode:    v3.ProcessingMode_BUFFERED,
+							ResponseHeaderMode: v3.ProcessingMode_SKIP,
+							ResponseBodyMode:   v3.ProcessingMode_NONE,
+						},
+					}
+				}
+				if n.Key == "x-version-app" {
+					log.Printf("Processing x-version-app Header")
+					rhq := &pb.HeadersResponse{
+						Response: &pb.CommonResponse{
+							ClearRouteCache: true,
+							HeaderMutation: &pb.HeaderMutation{
+								SetHeaders: []*core.HeaderValueOption{
+									{
+										Header: &core.HeaderValue{
+											Key:   "releaseversion",
+											Value: "v1",
+										},
+										Append: &wrapperspb.BoolValue{
+											Value: true,
+										},
+									},
+								},
 							},
 						},
 					}
